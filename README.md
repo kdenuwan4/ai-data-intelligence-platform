@@ -1,4 +1,4 @@
-# ai-data-intelligence-platform
+# Ai-Data-Intelligence-Platform
 A data simulation and analysis platform showcasing NumPy and Pandas skills, with scalable architecture for AI applications.
 Project Overview
 
@@ -26,3 +26,5 @@ Project design: scalable, modular, and ready for AI modeling.
 
 Goal:
 The project is designed to showcase practical AI engineering skills and serves as a portfolio piece for freelance and professional AI work.
+
+
