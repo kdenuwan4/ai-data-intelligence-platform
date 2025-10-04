@@ -1,25 +1,52 @@
 import pandas as pd
 import numpy as np
-
+from typing import List, Optional, Union
 class Dataset:
     """
-    A class to load, clean, and summarize CSV datasets.
+    A utility class for handling and preprocessing datasets, 
+    designed to simplify data loading, cleaning, and summarization.
 
-    Attributes:
-    -----------
+    Features:
+    ---------
+    - Load CSV files into a pandas DataFrame.
+    - Handle missing values with multiple strategies (mean, median, custom, drop).
+    - Clean financial/money columns by removing symbols, handling parentheses 
+      for negatives, and converting to numeric.
+    - Safely convert numeric-looking string columns into proper numeric types 
+      without disturbing pure text columns.
+    - Generate quick descriptive statistics and column metadata 
+      (data types, non-null counts).
+
+    Parameters
+    ----------
     file_path : str
-        Path to the CSV file.
-    data : pd.DataFrame
-        The loaded dataset.
+        Path to the CSV file to be loaded.
 
-    Methods:
-    --------
-    load()
-        Loads the CSV file into a pandas DataFrame.
-    clean(strategy='mean', columns=None, custom=0, inplace=True)
-        Handles missing values with different strategies.
-    summarize()
-        Returns descriptive statistics and data types.
+    Attributes
+    ----------
+    file_path : str
+        The provided path of the dataset file.
+    data : pd.DataFrame
+        The underlying pandas DataFrame storing the dataset.
+
+    Methods
+    -------
+    load():
+        Load the dataset from CSV into a pandas DataFrame.
+    
+    clean(strategy="mean", columns=None, custom=0, inplace=True):
+        Handle missing values in the dataset using specified strategies.
+    
+    summarize():
+        Return descriptive statistics and metadata for all columns.
+    
+    clean_currency(symbols=['$', ',', '/', ' ']):
+        Clean financial/money columns by removing unwanted symbols, 
+        handling parentheses for negatives, and converting values to floats.
+    
+    convert_numeric_safe(columns=None, exclude_columns=None):
+        Auto-detect and safely convert numeric-like columns to numeric 
+        datatypes while preserving true text columns.
     """
     
     def __init__(self, file_path) -> None:
@@ -35,6 +62,8 @@ class Dataset:
         
         self.file_path = file_path
         self.data = None
+        self.financial_columns = None
+        self.numeric_columns = None
     
     def load(self):
         
@@ -50,9 +79,12 @@ class Dataset:
         self.data = pd.read_csv(self.file_path)
         print("✅ Dataset loaded successfully")
         
+        # Clean column names
+        self.data.columns = self.data.columns.str.strip()
+        
         return self.data
     
-    def clean(self, strategy="mean", columns=None, custom=0, inplace=True):
+    def clean(self, strategy="mean", columns=None, custom: Union[int, float] = 0, inplace=True):
         
         """
         Handle missing values in the dataset.
@@ -67,7 +99,7 @@ class Dataset:
             - 'drop'   : drop rows with missing values
         columns : list, default=None
             List of columns to apply cleaning on. If None, applies to all columns.
-        custom : numeric or str, default=0
+        custom : numeric, default=0
             Custom value to fill when strategy='custom'.
         inplace : bool, default=True
             If True, modifies self.data; otherwise returns a new DataFrame.
@@ -86,15 +118,15 @@ class Dataset:
 
         if strategy == "mean":
             for col in columns:
-                df[col].fillna(df[col].mean(), inplace=True)
+                df[col] = df[col].fillna(df[col].mean())
 
         elif strategy == "median":
             for col in columns:
-                df[col].fillna(df[col].median(), inplace=True)
+                df[col] = df[col].fillna(df[col].median())
 
         elif strategy == "custom":
             for col in columns:
-                df[col].fillna(custom, inplace=True)
+                df[col] = df[col].fillna(custom)
 
         elif strategy == "drop":
             df.dropna(subset=columns, inplace=True)
@@ -122,7 +154,7 @@ class Dataset:
         print(stats.head())
         print(col_info)
         """
-        statistics = self.data.describe()  # already a DataFrame
+        statistics = self.data.describe()  
         types = pd.DataFrame({
             "Type": self.data.dtypes,
             "Non-Null Count": self.data.notnull().sum()
@@ -131,7 +163,7 @@ class Dataset:
         return statistics, types
 
 
-    def detect_numeric_financial(self, threshold=0.7):
+    def detect_numeric(self, threshold=0.7):
         """
         Automatically detect numeric and financial columns in the dataset.
 
@@ -216,12 +248,11 @@ class Dataset:
         - Non-convertible values are replaced with NaN.
         """
         if not self.financial_columns:
-            self.detect_numeric_financial()
+            self.detect_numeric()
 
         df = self.data if inplace else self.data.copy()
 
-        # Clean column names
-        df.columns = df.columns.str.strip()
+        
 
         for col in self.financial_columns:
             df[col] = df[col].astype(str).str.strip().replace('', np.nan)
@@ -246,7 +277,7 @@ class Dataset:
 
 
 
-    def convert_numeric_safe(self, columns=None, exclude_columns=None, inplace=True):
+    def to_numeric(self, columns=None, exclude_columns=None, inplace=True):
         
         """
         Safely convert numeric-like string columns to numeric types (int or float).
@@ -276,7 +307,7 @@ class Dataset:
             exclude_columns = []
 
         if not self.numeric_columns:
-            self.detect_numeric_financial()
+            self.detect_numeric()
 
         if columns is None:
             columns = [col for col in self.numeric_columns if col not in exclude_columns]
